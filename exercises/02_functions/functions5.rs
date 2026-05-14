@@ -1,0 +1,11 @@
+// TODO: Fix the function body without changing the signature.
+fn square(num: i32) -> i32 {
+     num * num
+}
+
+// in rust ; is a sentence but no ; is not a sentence, which can be returned
+
+fn main() {
+    let answer = square(3);
+    println!("The square of 3 is {answer}");
+}
