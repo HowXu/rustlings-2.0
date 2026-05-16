@@ -3,7 +3,8 @@
 
 // TODO: Bring `SystemTime` and `UNIX_EPOCH` from the `std::time` module into
 // your scope. Bonus style points if you can do it with one line!
-// use ???;
+// 通配符也是可用的
+use std::time::*;
 
 fn main() {
     match SystemTime::now().duration_since(UNIX_EPOCH) {
