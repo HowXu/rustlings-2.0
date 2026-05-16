@@ -43,9 +43,28 @@ impl State {
         self.quit = true;
     }
 
+    // 一次性message 而且值只用一次 不需要管所有权
     fn process(&mut self, message: Message) {
         // TODO: Create a match expression to process the different message
         // variants using the methods defined above.
+        // 必须mathc每一个 这个有点像lamda表达式了 有感觉吗
+        match message {
+            Message::Resize{width,height} => {
+                self.resize(width, height);
+            }
+            Message::Move(p) => {
+                self.move_position(p);
+            }
+            Message::Echo(s) => {
+                self.echo(s);
+            }
+            Message::ChangeColor(r, g,b ) => {
+                self.change_color(r, g, b);
+            }
+            Message::Quit => {
+                self.quit();
+            }
+        }
     }
 }
 
