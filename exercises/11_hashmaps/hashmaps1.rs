@@ -8,13 +8,17 @@ use std::collections::HashMap;
 
 fn fruit_basket() -> HashMap<String, u32> {
     // TODO: Declare the hash map.
-    // let mut basket =
+    let mut basket = HashMap::new();
+    // 因为不是严格的面向对象 函数式创建结构体才是正常的 这句话对吗
 
     // Two bananas are already given for you :)
     basket.insert(String::from("banana"), 2);
 
     // TODO: Put more fruits in your basket.
 
+    basket.insert(String::from("apple"), 108);
+    basket.insert(String::from("orange"), 1024);
+    // 这里会返回所有权
     basket
 }
 
