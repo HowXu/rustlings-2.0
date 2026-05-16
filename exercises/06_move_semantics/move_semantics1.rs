@@ -1,6 +1,8 @@
 // TODO: Fix the compiler error in this function.
 fn fill_vec(vec: Vec<i32>) -> Vec<i32> {
-    let vec = vec;
+    let mut vec = vec;
+    // 默认可以这样拷贝？
+    // 必须是mut vec才能push?
 
     vec.push(88);
 

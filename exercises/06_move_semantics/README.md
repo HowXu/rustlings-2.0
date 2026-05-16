@@ -4,6 +4,9 @@ These exercises are adapted from [pnkfelix](https://github.com/pnkfelix)'s [Rust
 
 ## Further information
 
+所有权 借用和引用
+移动语义
+
 For this section, the book links are especially important.
 
 - [Ownership](https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html)

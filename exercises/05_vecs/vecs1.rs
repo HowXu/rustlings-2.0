@@ -5,6 +5,10 @@ fn array_and_vec() -> ([i32; 4], Vec<i32>) {
     // Use the vector macro.
     // let v = ???;
 
+    // in cpp vector is a list
+    // typically we use vec![] macro and init datatype front
+    let v = a.to_vec();
+    // let v2: Vec<isize> = vec![];
     (a, v)
 }
 
