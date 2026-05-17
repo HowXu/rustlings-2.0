@@ -8,7 +8,9 @@ fn main() {
     let optional_point = Some(Point { x: 100, y: 200 });
 
     // TODO: Fix the compiler error by adding something to this match statement.
-    match optional_point {
+    // what the fuck 这个ref是什么意思
+    // &肯定是可以的
+    match &optional_point {
         Some(p) => println!("Coordinates are {},{}", p.x, p.y),
         _ => panic!("No match!"),
     }

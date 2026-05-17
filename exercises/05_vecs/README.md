@@ -18,3 +18,26 @@ the other useful data structure, hash maps, later.
 - [Storing Lists of Values with Vectors](https://doc.rust-lang.org/book/ch08-01-vectors.html)
 - [`iter_mut`](https://doc.rust-lang.org/std/primitive.slice.html#method.iter_mut)
 - [`map`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.map)
+
+---
+
+## 笔记：vec! 宏的正确用法
+
+**错误写法：**
+
+```rust
+let mut result = vec![&str];  // ❌ 这是把类型名当元素，编译不过
+```
+
+`vec!` 宏里要放的是**具体的值**，不是类型名。
+
+**正确写法：**
+
+```rust
+// 空 Vec，需要显式标注类型
+let mut result: Vec<&str> = vec![];
+let mut result: Vec<&str> = Vec::new();
+
+// 有初始值的 Vec
+let mut result = vec!["hello", "world"];  // 类型自动推断为 Vec<&str>
+```

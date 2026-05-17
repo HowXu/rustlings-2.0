@@ -4,6 +4,14 @@
 // `hour_of_day` is higher than 23.
 fn maybe_ice_cream(hour_of_day: u16) -> Option<u16> {
     // TODO: Complete the function body.
+    // 直接Some就行了? 应该要加判断
+    if hour_of_day < 22 {
+        Option::Some(5)
+    }else if hour_of_day <= 23 {
+        Option::Some(0)
+    }else {
+        None
+    }
 }
 
 fn main() {
@@ -18,7 +26,8 @@ mod tests {
     fn raw_value() {
         // TODO: Fix this test. How do you get the value contained in the
         // Option?
-        let ice_creams = maybe_ice_cream(12);
+        // .into是拿值的吧
+        let ice_creams = maybe_ice_cream(12).unwrap(); // this is 正确的
 
         assert_eq!(ice_creams, 5); // Don't change this line.
     }
