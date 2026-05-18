@@ -11,7 +11,8 @@ impl Licensed for SomeSoftware {}
 impl Licensed for OtherSoftware {}
 
 // TODO: Fix the compiler error by only changing the signature of this function.
-fn compare_license_types(software1: ???, software2: ???) -> bool {
+// trail可以作为类型写作impl 必须要二者都是实现了这个trail才能用 就是接口嘛
+fn compare_license_types(software1: impl Licensed ,software2: impl Licensed) -> bool {
     software1.licensing_info() == software2.licensing_info()
 }
 

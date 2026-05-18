@@ -13,6 +13,10 @@ enum CreationError {
 }
 
 // A custom error type that we will be using in `PositiveNonzeroInteger::parse`.
+// 在这里自包含干什么? 封装吗
+
+
+
 #[derive(PartialEq, Debug)]
 enum ParsePosNonzeroError {
     Creation(CreationError),
@@ -26,6 +30,9 @@ impl ParsePosNonzeroError {
 
     // TODO: Add another error conversion function here.
     // fn from_parse_int(???) -> Self { ??? }
+    fn from_parse_int(err: ParseIntError) -> Self {
+        Self::ParseInt(err)
+    }
 }
 
 #[derive(PartialEq, Debug)]
@@ -43,7 +50,21 @@ impl PositiveNonzeroInteger {
     fn parse(s: &str) -> Result<Self, ParsePosNonzeroError> {
         // TODO: change this to return an appropriate error instead of panicking
         // when `parse()` returns an error.
-        let x: i64 = s.parse().unwrap();
+        
+        // ParseIntError是String.parse()的错误类型 首先map_err会把parse结果的ParseIntError
+        /*
+        fn map_err<T, E, F>(self, op: impl FnOnce(E) -> F) -> Result<T, F> {
+            match self {
+                Ok(val) => Ok(val),        // 成功 → 原封不动
+                Err(e)  => Err(op(e)),     // 失败 → 用op把错误类型换掉
+            }
+        }
+        */
+        // 转换为ParsePosNonzeroError 同时?进行反向传播 在不Error的情况下会返回Ok(self) 
+        // 否则x就是ParsePosNonzeroError::ParseInt并且封装了ParseIntError 直接被返回
+        // 下一层就是封装x为PositiveNonzeroInteger new的返回错误为CreationError 这里用ParsePosNonzeroError的from_creation
+        // 函数就直接封装成ParsePosNonzeroError了 直接返回
+        let x: i64 = s.parse().map_err(ParsePosNonzeroError::ParseInt)?;
         Self::new(x).map_err(ParsePosNonzeroError::from_creation)
     }
 }

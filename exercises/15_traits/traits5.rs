@@ -10,6 +10,7 @@ trait OtherTrait {
     }
 }
 
+// 都实现了
 struct SomeStruct;
 impl SomeTrait for SomeStruct {}
 impl OtherTrait for SomeStruct {}
@@ -19,7 +20,8 @@ impl SomeTrait for OtherStruct {}
 impl OtherTrait for OtherStruct {}
 
 // TODO: Fix the compiler error by only changing the signature of this function.
-fn some_func(item: ???) -> bool {
+// 用加号表示需要同时实现这两个接口
+fn some_func(item: impl SomeTrait + OtherTrait) -> bool {
     item.some_function() && item.other_function()
 }
 

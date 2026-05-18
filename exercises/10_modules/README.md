@@ -91,3 +91,82 @@ mod a {
 | `pub use xxx;` | ✓ | ✓ |
 
 这种 `pub use` 模式叫 **re-export（重新导出）**——把内部模块里的东西以当前模块的名义"转发"出去，方便外部调用。
+
+---
+
+## 笔记：Crate 是什么？
+
+### 通俗理解
+
+crate（包箱）是 Rust 的**编译单元**——编译器一次处理一个 crate，生成一个二进制文件或一个库。`
+
+### crate 的两种形态
+
+| 类型 | 入口文件 | 产物 | 场景 |
+|------|----------|------|------|
+| binary crate | `src/main.rs` | 可执行文件 (`.exe`) | 应用程序 |
+| library crate | `src/lib.rs` | `.rlib` 库文件 | 给别人用的库 |
+
+一个 Cargo 项目（一个 `Cargo.toml`）默认就是一个 crate，比如 `cargo new my_project` 创建出来的就是一个 binary crate。
+
+### crate 与 package、module 的关系（三层体系）
+
+| 层级 | 概念 | 说明 | 类比 |
+|------|------|------|------|
+| package | 包 | 一个 `Cargo.toml` 描述的项目，可包含多个 crate | Java 的 Maven/Gradle 项目 |
+| crate | 包箱 | 编译单元，一个 package 至少有 1 个 crate | Java 的 JAR 包 |
+| module | 模块 | crate 内部的代码组织单位，`mod` 定义 | Java 的 package |
+
+```
+package (Cargo.toml)
+├── binary crate (src/main.rs)
+│   ├── mod foo → foo.rs
+│   │   ├── fn bar()
+│   │   └── struct Baz
+│   └── mod utils → utils/
+│       └── mod.rs
+└── library crate (src/lib.rs)  ← 可选，一个 package 最多一个
+    └── ...
+```
+
+### 重要规则
+
+1. 一个 package **至少**有一个 crate（默认是 binary）
+2. 一个 package **最多**有一个 library crate
+3. 一个 package 可以有**多个** binary crate（放在 `src/bin/` 目录下，每个文件一个）
+4. `crate::` 是 crate 根路径的绝对路径引用
+
+### `crate::` 路径示例
+
+```rust
+// src/main.rs (crate root)
+mod animal {
+    pub fn eat() {}
+}
+
+fn main() {
+    crate::animal::eat();  // crate:: 从 crate 根开始寻址
+}
+```
+
+### 外部 crate 的引入
+
+在 `Cargo.toml` 添加依赖后，通过 `use` 引入：
+
+```rust
+// Cargo.toml
+// [dependencies]
+// rand = "0.8"
+
+use rand::Rng;  // 使用外部 crate
+```
+
+### 对比速记
+
+| 概念 | 你写的 | 作用 |
+|------|--------|------|
+| 定义模块 | `mod xxx;` | 把代码分层组织 |
+| 定义 crate | `Cargo.toml` + `main.rs`/`lib.rs` | 定义一个编译单元 |
+| 引入外部 crate | `Cargo.toml` 加依赖 + `use` | 使用别人的代码 |
+| crate 根路径 | `crate::` | 从 crate 顶端绝对寻址 |
+| 外部 crate 路径 | `rand::`（crate 名直接作为根） | 访问外部 crate |

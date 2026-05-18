@@ -1,4 +1,4 @@
-# Rustlings 练习笔记 (Exercise 0-11)
+# Rustlings 练习笔记 (Exercise 0-15)
 
 > 提取自 `exercises/00_intro` ~ `exercises/08_enums` 的注释与文档。
 
@@ -1065,3 +1065,420 @@ let basket = HashMap::from_iter(content);
 1. **`HashMap::new()`** — 创建空 HashMap，类型推断或手动标注
 2. **`basket.entry(fruit).or_insert(3)`** — entry 占位，不存在就插入
 3. **`entry().and_modify(...).or_insert(...)`** — 链式：存在就改，不存在就插
+
+---
+
+## 12. Options（可选值）
+
+### 基本概念
+
+`Option<T>` 表示一个可能存在也可能不存在的值。只有两个变体：`Some(T)` 和 `None`。
+
+```rust
+fn maybe_ice_cream(hour_of_day: u16) -> Option<u16> {
+    if hour_of_day < 22 {
+        Some(5)
+    } else if hour_of_day <= 23 {
+        Some(0)
+    } else {
+        None
+    }
+}
+```
+
+Rust 没有 `null`，用 `Option<T>` 替代。这迫使你在编译期就处理"值可能不存在"的情况。
+
+### `if let` 与 `unwrap` 的区别
+
+| | `if let` | `unwrap` |
+|---|---|---|
+| None 时 | 跳过不执行 | 程序崩溃（panic） |
+| 写法 | `if let Some(x) = opt` | `opt.unwrap()` |
+| 何时用 | 不确定是否有值 | 确定一定有值 |
+
+```rust
+let opt = Some(42);
+
+// ✅ if let 自动取出值
+if let Some(x) = opt {
+    println!("{}", x);  // x = 42
+}
+
+// ✅ unwrap：确定有值时用
+let x = opt.unwrap();  // x = 42
+
+// ❌ if let 和 unwrap 不能混用
+// if let x = opt.unwrap() { ... }
+```
+
+### `while let` — 循环版本
+
+只要模式匹配就持续执行循环体：
+
+```rust
+let mut vec: Vec<Option<i8>> = vec![None, Some(1), Some(2), Some(3)];
+
+while let Some(Some(integer)) = vec.pop() {
+    println!("{}", integer);  // 依次输出 3, 2, 1
+}
+// vec.pop() 返回 Option<Option<i8>>
+// 外层 Some 表示 pop 有值，内层 Some 取出实际数字
+```
+
+注意：`Vec::pop()` 返回 `Option<T>`，如果元素本身也是 `Option`，就会形成嵌套 `Option<Option<T>>`，需要**嵌套模式匹配**。
+
+### `ref` 与 `&` 的区别
+
+两者都跟引用有关，但位置和用法不同：
+
+| | `&` | `ref` |
+|---|---|---|
+| 用在 | 表达式（值一侧） | 模式匹配（变量一侧） |
+| 含义 | "创建这个值的引用" | "把匹配到的值绑定为引用" |
+
+```rust
+let x = 5;
+let r = &x;        // & 在表达式侧，创建引用
+let ref r = x;     // ref 在模式侧，声明绑定为引用
+
+// match 中不移动所有权的两种写法：
+let opt = Some(Point { x: 100, y: 200 });
+
+// 写法1（传统）：ref 写在模式内
+match opt {
+    Some(ref p) => println!("{},{}", p.x, p.y),  // p: &Point
+    _ => (),
+}
+
+// 写法2（现代，推荐）：& 加在 match 表达式上
+match &opt {
+    Some(p) => println!("{},{}", p.x, p.y),  // p: &Point（自动推断）
+    _ => (),
+}
+```
+
+现代 Rust 推荐写法2（`match &opt`），编译器会自动识别你在借用，模式中的绑定自动变成引用（这叫 **match ergonomics**）。
+
+### 练习要点
+
+1. **`Some(5)` / `None`** — Option 的两个变体
+2. **`if let Some(x) = opt`** — 条件解构，None 时跳过
+3. **`while let Some(x) = ...`** — 循环解构，遇 None 退出
+4. **`match &opt`** — 借用匹配，不移动所有权
+
+---
+
+## 13. Error Handling（错误处理）
+
+### 两类错误
+
+Rust 把错误分成两类：
+- **不可恢复**：`panic!`，直接崩溃
+- **可恢复**：`Result<T, E>`，调用方决定怎么处理
+
+### `Result<T, E>` 基础
+
+```rust
+enum Result<T, E> {
+    Ok(T),    // 成功，携带返回值
+    Err(E),   // 失败，携带错误信息
+}
+
+fn generate_nametag_text(name: String) -> Result<String, String> {
+    if name.is_empty() {
+        Err(String::from("Empty names aren't allowed"))
+    } else {
+        Ok(format!("Hi! My name is {name}"))
+    }
+}
+```
+
+### `?` 运算符
+
+`?` 是 Rust 最常用的错误处理语法糖，本质是 `match` + `return Err` 的简写：
+
+```rust
+// 这两种写法完全等价：
+let qty = item_quantity.parse::<i32>()?;
+
+let qty = match item_quantity.parse::<i32>() {
+    Ok(n) => n,                      // 成功 → 取出值
+    Err(e) => return Err(e.into()),  // 失败 → 提前返回 Err
+};
+```
+
+**使用条件**：`?` 只能在返回 `Result` 或 `Option` 的函数中使用，且错误类型必须兼容。
+
+### `?` 在 `main` 中的使用
+
+`main` 函数也可以返回 `Result`，从而在函数体内直接使用 `?`：
+
+```rust
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let cost = total_cost("8")?;     // ? 在 main 中直接用
+    println!("You now have {} tokens.", 100 - cost);
+    Ok(())
+}
+```
+
+### `Box<dyn Error>` — 通用错误容器
+
+当不同类型错误需要混用时，用 `Box<dyn Error>` 兜底。`dyn Error` 表示"任何实现了 `Error` trait 的类型"。
+
+```rust
+fn main() -> Result<(), Box<dyn Error>> {
+    let x: i64 = "42".parse()?;                    // ParseIntError
+    let num = PositiveNonzeroInteger::new(x)?;      // CreationError
+    // 两种错误都能通过 ? 传播，因为都实现了 Error trait
+    Ok(())
+}
+```
+
+### `map_err` — 错误类型转换
+
+`map_err` 只转换 `Err` 分支，`Ok` 原封不动：
+
+```rust
+// map_err 伪代码
+fn map_err<T, E, F>(self, op: impl FnOnce(E) -> F) -> Result<T, F> {
+    match self {
+        Ok(val) => Ok(val),
+        Err(e)  => Err(op(e)),
+    }
+}
+
+// 实际用法
+s.parse::<i64>()
+    .map_err(ParsePosNonzeroError::ParseInt)?;  // ParseIntError → 自定义错误
+
+Self::new(x)
+    .map_err(ParsePosNonzeroError::from_creation)  // CreationError → 自定义错误
+```
+
+### 枚举变体直接当函数用
+
+```rust
+// ParsePosNonzeroError::ParseInt 本身就是一个 fn(ParseIntError) -> ParsePosNonzeroError
+s.parse::<i64>().map_err(ParsePosNonzeroError::ParseInt)
+
+// 等价于闭包写法：
+s.parse::<i64>().map_err(|e| ParsePosNonzeroError::ParseInt(e))
+```
+
+### 自定义错误类型
+
+```rust
+enum ParsePosNonzeroError {
+    Creation(CreationError),   // 业务错误
+    ParseInt(ParseIntError),   // 解析错误
+}
+
+impl ParsePosNonzeroError {
+    fn from_creation(err: CreationError) -> Self { Self::Creation(err) }
+    fn from_parse_int(err: ParseIntError) -> Self { Self::ParseInt(err) }
+}
+```
+
+### `impl Display for XxxError`
+
+自定义错误要能被 `Box<dyn Error>` 接收，必须实现 `Display` + `Error` trait：
+
+```rust
+use std::fmt;
+
+impl fmt::Display for CreationError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let description = match self {
+            CreationError::Negative => "number is negative",
+            CreationError::Zero => "number is zero",
+        };
+        f.write_str(description)
+    }
+}
+
+impl std::error::Error for CreationError {}
+```
+
+### 练习要点
+
+1. **`Result<Ok, Err>`** — 替代 `Option` 提供错误信息
+2. **`?` 运算符** — 成功取值，失败提前返回，等价于 `match` + `return Err`
+3. **`main() -> Result<(), Box<dyn Error>>`** — 让 main 支持 `?`
+4. **`Box<dyn Error>`** — 通用错误类型容器，抹平不同错误类型差异
+5. **`map_err`** — 只转换 Err 分支，Ok 原封不动
+6. **枚举变体直接当函数** — `map_err(MyError::Variant)` 等价于 `map_err(|e| MyError::Variant(e))`
+7. **`impl Display + Error`** — 自定义错误要能被 `Box<dyn Error>` 接纳的必备条件
+
+---
+
+## 14. Generics（泛型）
+
+### 基本概念
+
+泛型就是**类型的占位符**，让同一份代码处理不同类型，减少重复。
+
+### 泛型语法三要素
+
+| 位置 | 写法 | 说明 |
+|------|------|------|
+| 结构体定义 | `struct Wrapper<T>` | `<T>` 声明在类型名后，T 可在结构体内使用 |
+| 实现块 | `impl<T> Wrapper<T>` | `impl<T>` 声明泛型参数，`Wrapper<T>` 指定具体泛型 |
+| 函数 | `fn foo<T>(x: T)` | 函数上同理 |
+
+```rust
+// 泛型结构体
+struct Wrapper<T> {
+    value: T,
+}
+
+// 泛型实现
+impl<T> Wrapper<T> {
+    fn new(value: T) -> Self {
+        Wrapper { value }
+    }
+}
+
+// 使用：编译器自动推断 T
+let w1 = Wrapper::new(42);        // T = i32
+let w2 = Wrapper::new("Foo");     // T = &str
+```
+
+### `Vec<T>` 的类型标注
+
+`Vec::new()` 是泛型构造函数，没有上下文时编译器无法推断 `T`，需要手动标注：
+
+```rust
+let mut numbers: Vec<i16> = Vec::new();  // 显式标注 T = i16
+```
+
+### `Into` 与类型转换
+
+`u8` 和 `i8` 都能 `.into()` 成 `i16`（因为 `i16` 实现了 `From<u8>` 和 `From<i8>`），所以 `Vec<i16>` 是能同时容纳这两种输入的合适类型。
+
+### 泛型类比
+
+```rust
+// 没有泛型之前，每种类型都要单独写一遍
+struct I32Wrapper { value: i32 }
+struct StrWrapper { value: &'static str }
+
+// 泛型之后，一份代码搞定所有类型
+struct Wrapper<T> { value: T }
+```
+
+### 练习要点
+
+1. **`Vec<i16>`** — 手动标注泛型类型帮助编译器推断
+2. **`struct Wrapper<T>` + `impl<T> Wrapper<T>`** — 泛型结构体与实现的完整写法，`<T>` 出现两次（声明 + 绑定）
+
+---
+
+## 15. Traits（特征）
+
+### 本质
+
+Trait 定义一组方法签名，描述类型的**共享行为**。类似 Java interface / C++ 抽象类，但可以有**默认实现**。
+
+### 基本语法
+
+```rust
+trait Licensed {
+    // 必须实现的方法（无默认实现时）
+    fn licensing_info(&self) -> String;
+}
+
+trait Licensed {
+    // 带默认实现的方法（可选覆盖）
+    fn licensing_info(&self) -> String {
+        "Default license".to_string()
+    }
+}
+
+struct SomeSoftware;
+impl Licensed for SomeSoftware {}  // 空实现，使用默认方法
+```
+
+### `impl Type` vs `impl Trait for Type`
+
+| 写法 | 含义 | 例子 |
+|------|------|------|
+| `impl Type { }` | 为类型添加**自身方法**（inherent） | `impl String { fn new() ... }` |
+| `impl Trait for Type { }` | 让类型**实现某个 trait** | `impl Display for Point { fn fmt() ... }` |
+
+关键差异：
+1. 自身方法直接 `.` 调用；trait 方法需要 trait 在作用域内
+2. 自身方法优先级 > trait 方法；同名冲突时用 `TraitName::method(&instance)` 调用 trait 版
+3. 孤儿规则对 `impl Type` 更严格（只能在类型所在 crate 写）
+
+### Trait 作为参数类型 — `impl Trait`
+
+```rust
+// 要求参数只要实现了 Licensed 即可，不限制具体类型
+fn compare_license_types(software1: impl Licensed, software2: impl Licensed) -> bool {
+    software1.licensing_info() == software2.licensing_info()
+}
+```
+
+`impl Trait` 是语法糖，等价于泛型约束写法：
+```rust
+fn compare_license_types<T: Licensed, U: Licensed>(software1: T, software2: U) -> bool { ... }
+```
+
+### 多重 trait 约束 — `impl Trait1 + Trait2`
+
+```rust
+// 要求参数同时实现两个 trait
+fn some_func(item: impl SomeTrait + OtherTrait) -> bool {
+    item.some_function() && item.other_function()
+}
+```
+
+泛型等价写法：
+```rust
+fn some_func<T: SomeTrait + OtherTrait>(item: T) -> bool { ... }
+```
+
+### 孤儿规则 (Orphan Rule)
+
+**只能为"你的"trait 或"你的"类型写实现**。两边都外来的，编译器禁止：
+
+| impl 组合 | Trait 归属 | Type 归属 | 是否允许 |
+|-----------|-----------|----------|---------|
+| `impl MyTrait for MyType` | 你的 | 你的 | ✅ |
+| `impl MyTrait for String` | 你的 | std | ✅ trait 是你的 |
+| `impl Display for MyType` | std | 你的 | ✅ type 是你的 |
+| `impl Display for String` | std | std | ❌ 两边都外来 |
+
+**破局 — Newtype 模式**：用元组结构体包装外来类型，再实现外来 trait：
+
+```rust
+struct MyStr(String);  // 你定义的包装类型
+impl fmt::Display for MyStr {  // ✅ MyStr 是你的
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "【{}】", self.0)
+    }
+}
+let inner: &String = &s.0;  // 通过 .0 访问内部值
+```
+
+### 常用标准库 Trait
+
+| Trait | 用途 | 关联语法 |
+|-------|------|---------|
+| `Clone` | 显式复制 | `.clone()` |
+| `Copy` | 隐式按位复制 | 赋值/传参时 |
+| `Debug` | 调试打印 | `{:?}` |
+| `Display` | 用户友好打印 | `{}` |
+| `PartialEq` | 比较相等 | `==`, `!=` |
+| `PartialOrd` | 比较大小 | `<`, `>`, `<=`, `>=` |
+| `Default` | 提供默认值 | `T::default()` |
+| `From` / `Into` | 类型转换 | `T::from(x)` / `x.into()` |
+| `Drop` | 析构时自动调用 | 离开作用域时 |
+
+### 练习要点
+
+1. **`fn append_bar(self) -> Self`** — trait 方法中 `Self` 指代实现者类型，`self` 拿走所有权
+2. **`impl AppendBar for Vec<String>`** — 为泛型类型的特定具体化实现 trait
+3. **默认方法** — trait 方法带函数体即可，实现者不写也能直接用
+4. **`impl Licensed` 做参数** — 接受任何实现了 Licensed 的类型，类似接口多态
+5. **`impl A + B`** — `+` 组合多个 trait 约束
