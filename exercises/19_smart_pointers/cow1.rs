@@ -19,6 +19,19 @@ fn main() {
     // You can optionally experiment here.
 }
 
+/*
+这个Cow比较灵性
+Cow::from(&vec)是对的 Cow::from(vec) 也是对的 用法也是相同的 但是 所有权变化不一样
+后者的所有权会给Cow 结束使用后就死掉了
+
+除此之外 from(&vec)在不调用.to_mut的情况下一定是Cow::Borrowed(_) 调用.to_mut之后这个东西会转变成Cow::Owned(_)
+
+关于Cow::Owned()和Cow::Borrowed(_) 二者表现出来是差不多的 只是在于 一个是写时无开销直接写 一个是读时无开销写时有
+
+其实Owned是Borrowed的转化态 正常只需要Cow::from(&vec) 就可以了 底层是否to_mut没关系 vec所有权还在的
+
+*/
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -29,6 +42,7 @@ mod tests {
         let vec = vec![-1, 0, 1];
         let mut input = Cow::from(&vec);
         abs_all(&mut input);
+        // 它传进去会受到to_mut的影响 所以需要Owned
         assert!(matches!(input, Cow::Owned(_)));
     }
 
@@ -39,7 +53,8 @@ mod tests {
         let mut input = Cow::from(&vec);
         abs_all(&mut input);
         // TODO: Replace `todo!()` with `Cow::Owned(_)` or `Cow::Borrowed(_)`.
-        assert!(matches!(input, todo!()));
+        // 因为这个值 它实际上 传进去不会受到to_mut的影响 所以只需要borrow就可以了
+        assert!(matches!(input, Cow::Borrowed(_)));
     }
 
     #[test]
@@ -52,7 +67,7 @@ mod tests {
         let mut input = Cow::from(vec);
         abs_all(&mut input);
         // TODO: Replace `todo!()` with `Cow::Owned(_)` or `Cow::Borrowed(_)`.
-        assert!(matches!(input, todo!()));
+        assert!(matches!(input, Cow::Owned(_)));
     }
 
     #[test]
@@ -64,6 +79,6 @@ mod tests {
         let mut input = Cow::from(vec);
         abs_all(&mut input);
         // TODO: Replace `todo!()` with `Cow::Owned(_)` or `Cow::Borrowed(_)`.
-        assert!(matches!(input, todo!()));
+        assert!(matches!(input, Cow::Owned(_)));
     }
 }

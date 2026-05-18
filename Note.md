@@ -1,4 +1,4 @@
-# Rustlings 练习笔记 (Exercise 0-18)
+# Rustlings 练习笔记 (Exercise 0-20)
 
 > 提取自 `exercises/00_intro` ~ `exercises/08_enums` 的注释与文档。
 
@@ -1168,6 +1168,131 @@ match &opt {
 
 ---
 
+## let 模式解构（let Destructuring）
+
+### `let` 即模式匹配
+
+Rust 中 `let` 语句本身就是一个模式匹配。等号左边的不仅是"变量名"，而是**模式（pattern）**：
+
+```rust
+let x = 5;                    // x 是模式——匹配任何值，绑定到 x
+let (a, b) = (1, 2);         // (a, b) 是模式——解构元组
+let Point { x, y } = p;      // Point { x, y } 是模式——解构结构体
+```
+
+### irrefutable vs refutable（不可反驳 vs 可反驳）
+
+| 模式类型 | 含义 | 能用在哪 | 示例 |
+|----------|------|---------|------|
+| **irrefutable**（不可反驳） | 一定能匹配上 | `let`、函数参数、`for` | `let (a, b) = tup;` |
+| **refutable**（可反驳） | 可能匹配不上 | `if let`、`while let`、`match` | `if let Some(x) = opt` |
+
+**核心规则**：`let` 要求模式必须是不可反驳的——编译器必须能证明模式**永远**匹配成功。
+
+```rust
+// ✅ 不可反驳——结构体解构永远成功
+struct Point { x: i32, y: i32 }
+let p = Point { x: 10, y: 20 };
+let Point { x, y } = p;    // 编译通过
+
+// ✅ 不可反驳——元组解构永远成功
+let tup = (1, "hello", 3.14);
+let (a, b, c) = tup;       // 编译通过
+
+// ❌ 可反驳——Option 有两个变体，let Some 不一定匹配
+let opt: Option<i32> = None;
+// let Some(x) = opt;       // 编译错误：pattern None not covered
+
+// ✅ 改用 if let——专门处理可反驳模式
+if let Some(x) = opt {
+    println!("{}", x);
+}
+```
+
+### 结构体解构的三种写法
+
+```rust
+struct Point { x: i32, y: i32 }
+let p = Point { x: 10, y: 20 };
+
+// 1. 简写：变量名与字段名相同
+let Point { x, y } = p;
+println!("x={}, y={}", x, y);  // 10, 20
+
+// 2. 重命名：字段名: 变量名
+let Point { x: my_x, y: my_y } = p;
+println!("x={}, y={}", my_x, my_y);  // 10, 20
+
+// 3. 忽略部分字段：..
+let Point { x, .. } = p;
+println!("x={}", x);  // 10
+// println!("{}", y);  // ❌ y 未被绑定
+```
+
+### 枚举解构
+
+枚举解构是**可反驳的**（因为枚举有多个变体），所以不能直接用 `let`，必须用 `if let` 或 `match`：
+
+```rust
+enum Message {
+    Quit,
+    Move { x: i32, y: i32 },
+    Write(String),
+    ChangeColor(u8, u8, u8),
+}
+
+let msg = Message::Move { x: 10, y: 20 };
+
+// if let 解构
+if let Message::Move { x, y } = msg {
+    println!("移动到 ({}, {})", x, y);
+}
+
+// match 穷尽解构
+match msg {
+    Message::Quit => println!("退出"),
+    Message::Move { x, y } => println!("移动到 ({}, {})", x, y),
+    Message::Write(s) => println!("写入: {}", s),
+    Message::ChangeColor(r, g, b) => println!("颜色: ({}, {}, {})", r, g, b),
+}
+```
+
+### 函数参数也是模式
+
+```rust
+// 直接在参数位置解构
+fn print_point(Point { x, y }: &Point) {
+    println!("({}, {})", x, y);
+}
+
+// 解构元组参数
+fn swap((a, b): (i32, i32)) -> (i32, i32) {
+    (b, a)
+}
+```
+
+### 各场景适用的模式类型
+
+| 写法 | 模式类型要求 | 匹配不上时 |
+|------|:----------:|---------|
+| `let PAT = expr;` | 不可反驳 | 编译错误 |
+| `fn f(PAT: Type)` | 不可反驳 | 编译错误 |
+| `if let PAT = expr { }` | 可反驳 | 跳过 if 体 |
+| `while let PAT = expr { }` | 可反驳 | 循环终止 |
+| `match expr { PAT => ... }` | 可反驳（但需穷尽） | 尝试下一分支 |
+
+### 与 `if let` / `while let` 的关系
+
+`let`、`if let`、`while let` 本质是同一套模式匹配机制，区别在于**对匹配失败的容忍度**：
+
+```
+let x      =   expr   → 必须匹配，否则编译报错
+if let x   =   expr   → 匹配不上就跳过
+while let x =   expr  → 匹配不上就退出循环
+```
+
+---
+
 ## 13. Error Handling（错误处理）
 
 ### 两类错误
@@ -1771,6 +1896,273 @@ collection.iter().flat_map(|m| m.values()).filter(|v| *v == value).count()
 5. **`.product()` / `.sum()`** — 无循环求积/求和，空迭代器返回单位元（1/0）
 6. **`.filter()`** — 返回 bool，true 保留；`filter_map` 返回 Option，同时过滤+转换
 7. **`.flat_map()`** — 摊平嵌套迭代器
+
+---
+
+## 19. Smart Pointers（智能指针）
+
+### 四种智能指针对比
+
+| 智能指针 | 一句话 | 关键区别 |
+|---------|--------|---------|
+| `Box<T>` | 数据放堆上 | 唯一所有者，最简单 |
+| `Rc<T>` | 多人共享 | 引用计数，单线程 |
+| `Arc<T>` | 跨线程共享 | Rc + 原子操作 |
+| `Cow<T>` | 能省就省 | 惰性克隆，不修改就不拷贝 |
+
+### Box`<T>` — 递归类型救星
+
+Rust 编译时必须知道每个类型的大小，递归类型会导致"无限大小"。`Box<T>` 把数据放堆上，栈上只存固定大小指针：
+
+```rust
+// ❌ 编译错误：recursive type has infinite size
+enum List { Cons(i32, List), Nil }
+
+// ✅ 用 Box 解决
+enum List { Cons(i32, Box<List>), Nil }
+
+let list = List::Cons(1, Box::new(List::Cons(2, Box::new(List::Nil))));
+```
+
+### Rc`<T>` — 多个所有者
+
+打破"一个值只能有一个所有者"的限制，引用计数为 0 时自动释放：
+
+```rust
+use std::rc::Rc;
+
+let sun = Rc::new(Sun);              // 计数 = 1
+let mercury = Planet::Mercury(Rc::clone(&sun));  // 计数 = 2
+let venus = Planet::Venus(Rc::clone(&sun));      // 计数 = 3
+```
+
+| | `&T`（引用） | `Rc<T>` |
+|---|---|---|
+| 所有权 | 借用，不拥有 | 共享所有权 |
+| 生存期 | 受生命周期约束 | 运行时动态管理 |
+| 可变性 | 可有 `&mut T` | 只能不可变访问 |
+| 线程 | ✅ | ❌ 单线程 |
+
+- **`Rc::clone(&rc)`** — 只增加引用计数，不拷贝数据（极轻量）
+- **`Rc::strong_count(&rc)`** — 查看当前引用计数
+- **`drop(x)`** — 手动提前释放，减少计数
+- **`Rc::new(value)`** — 参数走 move 语义，传引用不行
+- 还有弱引用 `Rc::weak_count`，通过 `Rc::downgrade` 创建
+
+### Arc`<T>` — 线程安全的 Rc
+
+用原子操作替代普通计数，牺牲少量性能换取线程安全：
+
+```rust
+use std::sync::Arc;
+use std::thread;
+
+let shared_numbers = Arc::new(vec![0u32..100].collect::<Vec<_>>());
+let mut handles = vec![];
+
+for offset in 0..8 {
+    let child = Arc::clone(&shared_numbers);
+    handles.push(thread::spawn(move || {
+        let sum: u32 = child.iter().filter(|&&n| n % 8 == offset).sum();
+        println!("Sum of offset {offset} is {sum}");
+    }));
+}
+for h in handles { h.join().unwrap(); }
+```
+
+| | `Rc<T>` | `Arc<T>` |
+|---|---|---|
+| 线程安全 | ❌ | ✅ |
+| 计数方式 | 普通加减 | 原子操作（略慢） |
+| 场景 | 单线程共享 | 多线程共享 |
+
+### Cow`<T>` — 写时克隆
+
+先用别人的数据，实在要改时才自己复制一份：
+
+```rust
+use std::borrow::Cow;
+
+fn abs_all(input: &mut Cow<[i32]>) {
+    for i in 0..input.len() {
+        if input[i] < 0 {
+            input.to_mut()[i] = -input[i];  // 需要修改时才克隆！
+        }
+    }
+}
+
+// 全正数 → 不克隆，仍是 Cow::Borrowed
+let mut cow = Cow::from(&vec![1, 2, 3]);
+abs_all(&mut cow);  // → Cow::Borrowed，零开销
+
+// 有负数 → 自动克隆，变成 Cow::Owned
+let mut cow = Cow::from(&vec![-1, 2, 3]);
+abs_all(&mut cow);  // → Cow::Owned，内部自动复制了一份
+```
+
+- **`Cow::from(&vec)`** — 借用模式，数据所有权还在外面
+- **`Cow::from(vec)`** — 拥有模式，所有权移入 Cow
+- **`to_mut()`** — 返回 `&mut T`。Borrowed 变 Owned（克隆），Owned 直接改
+- Deref 让 Cow 读时零开销，但写必须通过 `to_mut()`
+- 典型场景：函数接收 `&str`，只在需要修改时才转为 `String`
+
+### dyn Trait 与 Box`<dyn Trait>`
+
+`dyn` = 动态分发，表示"一个实现了某 trait 的任意类型"：
+
+```rust
+// 静态分发（编译时为每种类型生成代码）
+fn static_call<T: Animal>(animal: &T) { animal.speak(); }
+
+// 动态分发（运行时虚表查找）
+fn dynamic_call(animal: &dyn Animal) { animal.speak(); }
+
+// 异构集合：Vec 里放不同类型
+let animals: Vec<Box<dyn Animal>> = vec![
+    Box::new(Dog), Box::new(Cat), Box::new(Dog),
+];
+for animal in &animals { animal.speak(); }  // 汪汪 喵喵 汪汪
+```
+
+| | 静态分发 `<T: Trait>` | 动态分发 `dyn Trait` |
+|---|---|---|
+| 调用方式 | 编译时跳转（单态化） | 运行时虚表查找 |
+| 性能 | 更快 | 有轻微虚表开销 |
+| 二进制大小 | 每种类型一份代码（更大） | 只一份代码 |
+| 集合异构 | 不能 | 能 |
+
+`dyn Trait` 是 DST，必须藏在指针后面：`&dyn Trait`、`Box<dyn Trait>`、`Arc<dyn Trait>`。
+
+### 缩写含义
+
+| 缩写 | 全称 | 含义 |
+|------|------|------|
+| `Box` | 不是缩写 | 数据装进堆上的"盒子" |
+| `Rc` | **R**eference **C**ounted | 引用计数 |
+| `Arc` | **A**tomic **R**eference **C**ounted | 原子引用计数 |
+| `Cow` | **C**lone **o**n **W**rite | 写时克隆 |
+
+### 练习要点
+
+1. **`Box<List>`** — 递归类型必须用 Box 打断无限大小
+2. **`Rc::clone(&sun)` + `Rc::strong_count` + `drop`** — 引用计数的增、查、减
+3. **`Arc::clone(&shared)` + `thread::spawn(move || ...)`** — Arc 跨线程共享数据
+4. **`Cow::from(&vec)` vs `Cow::from(vec)`** — 借用 vs 拥有；`to_mut()` 触发写时克隆
+
+---
+
+## 20. Threads（线程）
+
+### 线程创建：`thread::spawn`
+
+```rust
+use std::thread;
+
+let handle = thread::spawn(move || {
+    // 新线程中执行的代码
+    42  // 返回值
+});
+
+let result = handle.join().unwrap();  // 阻塞等待，取回结果
+```
+
+| 概念 | 说明 |
+|---|---|
+| `thread::spawn` | 创建新线程，OS 调度执行 |
+| `JoinHandle` | 线程的"遥控器"，可等待结束、取结果 |
+| `join()` | 阻塞等待，返回 `Result<T>`（线程 panic 则返回 Err） |
+| `move` 闭包 | 强制闭包获取外部变量的所有权 |
+
+### `move` 闭包详解
+
+新线程可能比当前作用域活得更久，所以闭包必须**持有**（而非借用）外部变量：
+
+```rust
+// ❌ 不带 move：闭包尝试借用，生命周期不够
+thread::spawn(|| { println!("{s}"); });
+
+// ✅ 带 move：s 的所有权移入闭包
+thread::spawn(move || { println!("{s}"); });
+// println!("{s}");  // ❌ s 已被 move 走
+```
+
+**Copy 类型下 `move` 的行为**：`i32` 等 Copy 类型，`move` 相当于复制一份，每个线程持有自己的副本。
+
+### 闭包三种捕获方式
+
+| 捕获方式 | Trait | 说明 |
+|---|---|---|
+| 不可变借用 | `Fn` | 只读外部变量，可多次调用 |
+| 可变借用 | `FnMut` | 修改外部变量，可多次调用 |
+| 拿走所有权 | `FnOnce` | `move` 进来后，只能调一次 |
+
+闭包 vs 函数：闭包**能捕获环境变量**（这是核心区别），匿名可内联，类型可推断。
+
+### 共享可变状态：`Arc<Mutex<T>>`
+
+多线程共享并修改同一份数据时的标准组合：
+
+| 组件 | 解决问题 |
+|---|---|
+| `Arc<T>` | 多个线程共享同一份数据（引用计数，线程安全） |
+| `Mutex<T>` | 互斥访问，同一时刻只有一个线程能修改 |
+
+```rust
+use std::sync::{Arc, Mutex};
+
+let status = Arc::new(Mutex::new(JobStatus { jobs_done: 0 }));
+
+// 子线程中传递
+let status_shared = Arc::clone(&status);
+thread::spawn(move || {
+    status_shared.lock().unwrap().jobs_done += 1;  // lock → 改 → 离开作用域自动解锁
+});
+
+// 主线程读取
+println!("Jobs done: {}", status.lock().unwrap().jobs_done);
+```
+
+**`lock()` 返回过程**：
+- `lock()` → `Result<MutexGuard<T>>`（其他线程持有锁时 panic 会导致 Err "毒化锁"）
+- `unwrap()` → `MutexGuard<T>`，实现 `DerefMut`，可当 `&mut T` 用
+- 离开作用域 → `MutexGuard` 的 `Drop` 自动释放锁
+
+### 消息传递：`mpsc::channel`
+
+`mpsc` = **m**ulti-**p**roducer, **s**ingle-**c**onsumer（多生产者、单消费者）：
+
+```rust
+use std::sync::mpsc;
+
+let (tx, rx) = mpsc::channel();       // 发送端 + 接收端
+
+let tx1 = tx.clone();                 // Sender 可 clone，多人发送
+thread::spawn(move || { tx1.send(42).unwrap(); });
+thread::spawn(move || { tx.send(100).unwrap(); });
+
+for value in rx {                     // 阻塞等待，所有 Sender drop 后自动结束
+    println!("{value}");              // 42 和 100（顺序不定）
+}
+```
+
+**`for value in rx` 的终止条件**：当**所有** `Sender` 都被 drop 时，通道关闭，迭代自动结束。
+
+### 共享内存 vs 消息传递
+
+| | `mpsc::channel` | `Arc<Mutex<T>>` |
+|---|---|---|
+| 理念 | 传递消息，不共享内存 | 共享内存，靠锁保护 |
+| 数据流向 | 单向：多个S → 1个R | 任意线程读写同一块数据 |
+| 同步开销 | 无锁（通道内部有缓冲区） | 有锁竞争 |
+| 适合场景 | 生产者-消费者、流水线 | 需要多线程读写同一份状态 |
+
+### 练习要点
+
+1. **`handle.join().unwrap()`** — 阻塞等待线程结束，取回返回值
+2. **`Arc::new(Mutex::new(...))`** — 两层包装：共享 + 互斥可变
+3. **`status.lock().unwrap().jobs_done += 1`** — lock → 改 → 自动解锁
+4. **`mpsc::channel()` + `tx.clone()` + `for val in rx`** — 多生产者发消息，单消费者阻塞接收
+5. **结构体解构传线程** — `let Queue { first_half, second_half } = q;` 拆开分别 move 给两个线程
 
 ---
 

@@ -92,3 +92,41 @@ s.parse::<i64>().map_err(ParsePosNonzeroError::ParseInt)
 // 等价于闭包写法：
 s.parse::<i64>().map_err(|e| ParsePosNonzeroError::ParseInt(e))
 ```
+
+---
+
+## ⚠️ 重要补充：`JoinHandle::join()` 也返回 `Result`
+
+在 threads1 练习中，`handle.join().unwrap()` 用到了 `Result`：
+
+```rust
+// JoinHandle::join() 的签名
+pub fn join(self) -> Result<T, Box<dyn Any + Send + 'static>>
+```
+
+### 为什么返回 `Result`？
+
+线程可能 **panic**。如果子线程触发了 panic，`join()` 会捕获这个 panic 信息，包装在 `Err` 变体中返回。
+
+- `Ok(T)` — 线程正常结束，内含返回值
+- `Err(Box<dyn Any>)` — 线程 panic 了，内含 panic 时传入的值（字符串等）
+
+### 对比：I/O 错误 vs 线程 panic
+
+| 场景 | 错误类型 | 含义 |
+|---|---|---|
+| `File::open` 失败 | `Err(std::io::Error)` | **可预期的**运行失败 |
+| `parse` 失败 | `Err(ParseIntError)` | 数据格式错误 |
+| 子线程 panic | `Err(Box<dyn Any + Send>)` | **非预期的**逻辑错误，类似程序"崩了" |
+
+### `unwrap()` 的含义
+
+```rust
+handle.join().unwrap()
+//               ^^^^^^
+// 假设线程不会 panic，直接取结果
+// 如果线程真的 panic 了 → 当前线程也跟着 panic
+```
+
+`unwrap()` 在这里等于说："我信任子线程不会 panic，如果它 panic 了，那我也崩掉算了。" 这是编写练习时的简便写法，生产代码中可能需要更细致的处理
+```

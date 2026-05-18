@@ -17,18 +17,22 @@ impl Queue {
 fn send_tx(q: Queue, tx: mpsc::Sender<u32>) {
     // TODO: We want to send `tx` to both threads. But currently, it is moved
     // into the first thread. How could you solve this problem?
+    // 这个解构必须是一模一样的字段名称
+    let Queue { first_half,second_half } = q;
+    let tx_first = tx.clone();
+    let tx_second = tx.clone();
     thread::spawn(move || {
-        for val in q.first_half {
+        for val in first_half {
             println!("Sending {val:?}");
-            tx.send(val).unwrap();
+            tx_first.send(val).unwrap();
             thread::sleep(Duration::from_millis(250));
         }
     });
 
     thread::spawn(move || {
-        for val in q.second_half {
+        for val in second_half {
             println!("Sending {val:?}");
-            tx.send(val).unwrap();
+            tx_second.send(val).unwrap();
             thread::sleep(Duration::from_millis(250));
         }
     });
@@ -50,6 +54,7 @@ mod tests {
         send_tx(queue, tx);
 
         let mut received = Vec::with_capacity(10);
+        // for value in rx 这样就能直接完全接收而且不会卡线程
         for value in rx {
             received.push(value);
         }

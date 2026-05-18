@@ -18,18 +18,19 @@
 // Don't change the lines below.
 #![forbid(unused_imports)]
 use std::{sync::Arc, thread};
-
+// 这是什么use写法 我的发
 fn main() {
-    let numbers: Vec<_> = (0..100u32).collect();
+    let numbers: Vec<u32> = (0u32..100).collect();
 
     // TODO: Define `shared_numbers` by using `Arc`.
-    // let shared_numbers = ???;
+    let shared_numbers = Arc::new(numbers);
 
     let mut join_handles = Vec::new();
 
     for offset in 0..8 {
         // TODO: Define `child_numbers` using `shared_numbers`.
-        // let child_numbers = ???;
+        // 其实和Rc差不多 只是线程安全而已
+        let child_numbers = Arc::clone(&shared_numbers);
 
         let handle = thread::spawn(move || {
             let sum: u32 = child_numbers.iter().filter(|&&n| n % 8 == offset).sum();
