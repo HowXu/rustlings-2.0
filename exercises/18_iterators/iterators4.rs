@@ -10,6 +10,13 @@ fn factorial(num: u64) -> u64 {
     // - additional variables
     // For an extra challenge, don't use:
     // - recursion
+
+    /*
+    Iterates over the entire iterator, multiplying all the elements
+    An empty iterator returns the one value of the type.
+     */
+    // 1..=num这个运算符返回的原来是一个iter
+    (1..=num).product()
 }
 
 fn main() {

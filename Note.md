@@ -1,4 +1,4 @@
-# Rustlings 练习笔记 (Exercise 0-15)
+# Rustlings 练习笔记 (Exercise 0-18)
 
 > 提取自 `exercises/00_intro` ~ `exercises/08_enums` 的注释与文档。
 
@@ -1482,3 +1482,333 @@ let inner: &String = &s.0;  // 通过 .0 访问内部值
 3. **默认方法** — trait 方法带函数体即可，实现者不写也能直接用
 4. **`impl Licensed` 做参数** — 接受任何实现了 Licensed 的类型，类似接口多态
 5. **`impl A + B`** — `+` 组合多个 trait 约束
+
+---
+
+## 16. Lifetimes（生命周期）
+
+### 核心概念
+
+生命周期是编译器验证**引用是否有效**的机制。它不改变代码逻辑，不延长变量存活时间——只给借用检查器提供信息，确保引用不会悬垂。
+
+### 语法：`'a`
+
+生命周期标注是单引号开头的标识符，放在 `&` 和类型名之间：
+
+```rust
+&'a i32        // 带有生命周期 'a 的 i32 引用
+&'a mut i32    // 可变引用同理
+```
+
+### 函数中的生命周期
+
+当函数返回引用，且编译器无法推断返回值与哪个参数相关时，需要标注：
+
+```rust
+// ❌ 编译器报错：不知道返回值跟 x 还是 y 有关
+fn longest(x: &str, y: &str) -> &str { ... }
+
+// ✅ 标注后编译器能验证
+fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
+    if x.len() > y.len() { x } else { y }
+}
+```
+
+含义：x 和 y 至少活得跟 `'a` 一样久，返回值也活得跟 `'a` 一样久。
+
+### 结构体中的生命周期
+
+```rust
+struct Book<'a> {
+    author: &'a str,   // 引用必须比结构体实例活得久
+    title: &'a str,
+}
+```
+
+没有 `'a`，编译器无法保证 `Book` 存活期间内部引用的数据不会被释放。
+
+### 生命周期省略规则（Elision）
+
+编译器按三条规则自动补全，补不全才要求手写：
+
+| 规则 | 说明 |
+|------|------|
+| 每个引用参数各自获得一个生命周期 | `fn foo(x: &str)` → `fn foo<'a>(x: &'a str)` |
+| 只有一个输入生命周期时，返回值也用这个 | `fn foo(x: &str) -> &str` → `fn foo<'a>(x: &'a str) -> &'a str` |
+| `&self` / `&mut self` 存在时，返回值用 self 的生命周期 | 所以方法经常不用手写生命周期 |
+
+### `'static` 生命周期
+
+程序整个运行期间都有效的引用：
+
+```rust
+let s: &'static str = "hello";  // 字符串字面量天生是 'static
+```
+
+### 多个生命周期
+
+```rust
+fn foo<'a, 'b>(x: &'a str, y: &'b str) -> &'a str {
+    x  // 返回值只与 x 绑定
+}
+```
+
+### lifetimes2 关键教训
+
+```rust
+fn main() {
+    let string1 = String::from("long string is long");
+    let result;
+    {
+        let string2 = String::from("xyz");
+        result = longest(&string1, &string2);  // string2 在这个作用域内
+    }  // ← string2 在这里被销毁
+    println!("The longest string is '{result}'");  // ❌ result 引用了已销毁的 string2！
+}
+```
+
+**生命周期以作用域为单位**。内层花括号定义的变量，其生命周期短于外层变量。即使 `longest` 的返回值实际上指向 `string1`，编译器仍按最坏情况来检查——因为 `'a` 同时约束了 `string1` 和 `string2`，取两者的**交集**（较短的那个），`result` 的引用效期不能超过 `string2` 的生命周期。
+
+### 命名规则
+
+名字遵循标识符规则（字母、数字、下划线），约定使用单个小写字母 `'a`、`'b`……只有 `'static` 是保留关键字。
+
+### `println!` 会不会移动所有权？
+
+不会。`&str` 本身就是引用，传参只是复制引用。即使传 `String`，`println!` 宏内部用不可变借用，不会拿走所有权：
+
+```rust
+let s = String::from("hello");
+println!("{}", s);
+println!("{}", s);  // 仍然可用
+```
+
+### 练习要点
+
+1. **`fn longest<'a>(x: &'a str, y: &'a str) -> &'a str`** — 输入与输出的生命周期关系
+2. **`struct Book<'a> { author: &'a str }`** — 结构体持有引用必须标注生命周期
+3. **生命周期取交集** — 多个 `'a` 约束取最短的那个，内层作用域的引用活不到外层
+
+---
+
+## 17. Tests（测试）
+
+### 测试模块结构
+
+```rust
+#[cfg(test)]           // 只在测试模式编译，不进入正式构建
+mod tests {
+    use super::*;     // super 指向上层模块，导入待测试的函数
+
+    #[test]
+    fn test_something() { ... }
+}
+```
+
+`super` 关键词：在子模块中引用父模块，`super::` 就是"上一层"。
+
+### 三种断言宏
+
+| 宏 | 用途 | 示例 |
+|----|------|------|
+| `assert!` | 断言布尔值为 true | `assert!(is_even(2));` |
+| `assert_eq!` | 断言两值相等 | `assert_eq!(power_of_2(2), 4);` |
+| `assert_ne!` | 断言两值不等 | `assert_ne!(x, y);` |
+
+### `#[should_panic]`
+
+有些函数的正确行为就是 panic（如非法参数）——测试时告诉框架"这个 panic 是预期的"：
+
+```rust
+#[test]
+#[should_panic]
+fn negative_width() {
+    Rectangle::new(-10, 10);  // panic 发生 → 测试通过
+}
+```
+
+- 不加 `#[should_panic]` → panic 导致测试失败
+- 加了 `#[should_panic]` → panic 即测试通过；没 panic 反而失败
+- 精准匹配：`#[should_panic(expected = "must be positive")]` 限制 panic 消息必须包含指定字符串
+
+### `#[...]` — 属性（Attribute）
+
+属性是给编译器/工具链看的**元数据注解**，格式 `#[...]`，只影响编译过程，不参与运行时：
+
+| 属性 | 作用 |
+|------|------|
+| `#[test]` | 标记函数为测试函数 |
+| `#[should_panic]` | 测试应该 panic 才算通过 |
+| `#[cfg(test)]` | 条件编译：只在测试模式编译 |
+| `#[derive(Debug)]` | 自动生成 `Debug` trait 实现 |
+| `#[allow(unused)]` | 抑制某个编译警告 |
+
+**三种形式**：
+
+```rust
+#[test]                              // 无参数
+#[should_panic(expected = "...")]    // 键值参数
+#[cfg(any(unix, windows))]           // 布尔表达式参数
+```
+
+### 练习要点
+
+1. **`use super::*;`** — 从父模块导入待测函数，`super` 指上一层
+2. **`assert!` / `assert_eq!`** — 两种最常用的断言
+3. **`#[should_panic]`** — 测试 panic 行为，不加期望消息可能因其他原因 panic 误报通过
+
+---
+
+## 18. Iterators（迭代器）
+
+### 三种迭代方式
+
+| 方法 | 产出类型 | 原集合状态 | 使用场景 |
+|------|----------|------------|----------|
+| `.iter()` | `Option<&T>` | 仍然可用 | 只读遍历 |
+| `.iter_mut()` | `Option<&mut T>` | 仍然可用 | 修改元素 |
+| `.into_iter()` | `Option<T>` | 被消耗掉 | 拿走所有权 |
+
+```rust
+let arr = ["a", "b", "c"];  // [&str; 3]
+
+// .iter() → 每个元素是 &T，返回 &&str
+let mut it = arr.iter();
+assert_eq!(it.next(), Some(&"a"));
+// arr 还能继续用 ✅
+
+// .into_iter() → 拿走所有权，返回 T 本身（&str）
+let mut it2 = arr.into_iter();
+assert_eq!(it2.next(), Some("a"));
+// println!("{:?}", arr);  // ❌ arr 已被消耗
+```
+
+### `.next()` — 迭代器核心方法
+
+`next()` 返回 `Option<T>`，有值返回 `Some`，耗尽返回 `None`。迭代器是**惰性**的（lazy），不调消费方法不会执行。
+
+### `.collect()` — 万能收集器
+
+`.collect()` 根据返回类型自动将迭代器收集为目标集合：
+
+```rust
+// 收集为 Vec<String>
+words.iter().map(|s| capitalize_first(s)).collect()  // → Vec<String>
+
+// 收集为 String
+words.iter().map(|s| capitalize_first(s)).collect()  // → String
+
+// Result 短路收集：全 Ok → Ok(vec)，遇 Err → 返回该 Err
+numbers.into_iter().map(|n| divide(n, 27)).collect()  // → Result<Vec<i64>, _>
+
+// Result 原样收集：每个 Result 独立保留
+numbers.into_iter().map(|n| divide(n, 27)).collect()  // → Vec<Result<i64, _>>
+```
+
+**同一个 `.collect()` 只因目标类型不同就产生完全不同的行为**——`Result` 版本是标准库为 `FromIterator` 做的特殊实现。
+
+### `.chain()` — 拼接迭代器
+
+把两个同类型迭代器串成一个，懒求值：
+
+```rust
+first.to_uppercase()       // ToUppercase 迭代器（一个字符可能变大写后变多个字符）
+     .chain(chars)           // 把剩余字符接在后面
+     .collect::<String>()    // 收集为字符串
+```
+
+### 常用消费方法
+
+| 方法 | 作用 | 空迭代器返回值 |
+|------|------|----------------|
+| `.sum()` | 求和 | `0` |
+| `.product()` | 求积 | `1` |
+| `.count()` | 计数 | `0` |
+| `.collect()` | 收集到集合 | 空集合 |
+| `.fold(init, f)` | 自定义折叠 | 返回 `init` |
+
+### `filter` vs `filter_map`
+
+| 方法 | 闭包返回 | 行为 | 适用场景 |
+|------|----------|------|----------|
+| `filter(f)` | `bool` | `true` 保留原元素，`false` 丢弃 | 纯过滤 |
+| `filter_map(f)` | `Option<T>` | `Some(x)` 保留 `x`，`None` 丢弃 | 过滤 + 转换 |
+
+```rust
+// filter：只判断条件
+nums.iter().filter(|x| *x % 2 == 0).collect()  // → [2, 4]
+
+// filter_map：同时过滤和转换
+nums.iter().filter_map(|x| if *x % 2 == 0 { Some(x * 2) } else { None }).collect()  // → [4, 8]
+
+// ❌ 注意：filter_map 总是返回 Some → 等于没过滤
+map.iter().filter_map(|(_,v)| Some(*v == value)).count()  // 错误！count 了全部条目
+```
+
+### `flat_map` — 摊平嵌套迭代器
+
+```rust
+// collection: &[HashMap<_, _>]
+// flat_map 把每个 HashMap 的值迭代器摊平成一个平层迭代器
+collection.iter().flat_map(|m| m.values()).filter(|v| *v == value).count()
+```
+
+### `values()` vs `iter()` on HashMap
+
+```
+&HashMap<K, V>  →  .values()  →  Iterator<Item = &V>        // 直接拿值
+&HashMap<K, V>  →  .iter()    →  Iterator<Item = (&K, &V)>   // 拿键值对
+```
+
+比 `map.iter()` 再解构元组更简洁。
+
+### 练习要点
+
+1. **`arr.iter()`** — 借出迭代，返回 `&T`，原集合仍可用
+2. **`.next()`** — 惰性消费，返回 `Option<&T>`
+3. **`.collect()`** — 目标类型决定行为，Same method, different outcome
+4. **`first.to_uppercase().chain(chars).collect()`** — `to_uppercase()` 返回迭代器，用 `chain` 拼接
+5. **`.product()` / `.sum()`** — 无循环求积/求和，空迭代器返回单位元（1/0）
+6. **`.filter()`** — 返回 bool，true 保留；`filter_map` 返回 Option，同时过滤+转换
+7. **`.flat_map()`** — 摊平嵌套迭代器
+
+---
+
+## 17. Tests（测试）
+
+### 测试宏
+
+| 宏 | 用途 |
+|------|------|
+| `assert!(条件)` | 断言条件为真 |
+| `assert_eq!(a, b)` | 断言 a == b |
+| `assert_ne!(a, b)` | 断言 a != b |
+
+### 测试 panic
+
+```rust
+#[test]
+#[should_panic]
+fn test_negative_width() {
+    Rectangle::new(-10, 10);  // 期望它 panic
+}
+```
+
+`#[should_panic]` 告诉测试框架：这个函数应该 panic，panic 了才算通过。
+
+### 测试模块结构
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;  // 引入外层模块的所有内容
+
+    #[test]
+    fn my_test() {
+        // ...
+    }
+}
+```
+
+- `#[cfg(test)]` — 测试代码只在 `cargo test` 时编译
+- `use super::*` — 测试模块是外层模块的子模块，需要导入要测试的函数/结构体

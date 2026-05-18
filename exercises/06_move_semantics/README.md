@@ -92,3 +92,31 @@ impl<T> Vec<T> {
 v.push(4)  →  方法调用自动取引用  →  &mut v  →  传给 push(&mut self, ...)
 
 . 操作符会自动为你取 & 或 &mut，但它不能无中生有——&mut 只能从 mut 绑定生成。let v 不写 mut，就是声明"这个绑定不给 &mut 权限"，那后面所有需要 &mut 的操作都走不通。
+
+### 字段访问不会移走所有权
+
+```rust
+struct Rectangle {
+    width: i32,
+    height: i32,
+}
+
+let rect = Rectangle::new(10, 20); // rect 拥有整个结构体
+assert_eq!(rect.width, 10);        // 仅读取字段，rect 所有权不变
+assert_eq!(rect.height, 20);       // 同上，rect 仍然有效
+```
+
+字段访问（`rect.width`）是**读取/借用**，不会把 `rect` 的所有权交出去。理由：
+- 字段访问只读取数据，不是移动整个结构体
+- `i32` 实现了 `Copy` trait，即使"移动"也会自动复制
+- `assert_eq!` 宏内部取的是 `&` 引用，不拿所有权
+
+**对比**：
+
+| 操作 | 所有权变化 |
+|------|-----------|
+| `rect.width` 字段访问 | 不变（读取） |
+| `&rect` 借用 | 不变（共享借用） |
+| `let rect2 = rect;` 赋值 | 转移，rect 失效 |
+| `fn consume(r: Rectangle)` 传参 | 转移，实参失效 |
+| 实现了 `Copy` 的类型（如 `i32`） | 自动复制，不变 |

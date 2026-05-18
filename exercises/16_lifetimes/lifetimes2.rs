@@ -12,8 +12,10 @@ fn main() {
 
     let string1 = String::from("long string is long");
     let result;
+    let string2 = String::from("xyz");
+    // 显然生命周期是相对于作用域而言的 括号分级的作用域里的变量不可能和外层一个生命周期
     {
-        let string2 = String::from("xyz");
+        
         result = longest(&string1, &string2);
     }
     println!("The longest string is '{result}'");

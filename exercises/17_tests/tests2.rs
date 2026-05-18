@@ -1,5 +1,7 @@
 // Calculates the power of 2 using a bit shift.
 // `1 << n` is equivalent to "2 to the power of n".
+// 经典的 2的x次方等于1的位移
+// rust的位移也是用<< 和 >>
 fn power_of_2(n: u8) -> u64 {
     1 << n
 }
@@ -10,14 +12,14 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::power_of_2;
 
     #[test]
     fn you_can_assert_eq() {
         // TODO: Test the function `power_of_2` with some values.
-        assert_eq!();
-        assert_eq!();
-        assert_eq!();
-        assert_eq!();
+        assert_eq!(power_of_2(2),4);
+        assert_eq!(power_of_2(4),16);
+        assert_eq!(power_of_2(8),256);
+        assert_eq!(power_of_2(10),1024);
     }
 }
