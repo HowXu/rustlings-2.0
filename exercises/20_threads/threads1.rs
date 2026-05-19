@@ -13,7 +13,7 @@ fn main() {
     for i in 0..10 {
         let handle = thread::spawn(move || {
             let start = Instant::now();
-            thread::sleep(Duration::from_millis(250));
+            thread::sleep(Duration::from_millis(2500));
             println!("Thread {i} done");
             start.elapsed().as_millis()
         });
